@@ -66,8 +66,15 @@ public class OAuthUserServiceImpl implements OAuthUserService{
     @Override
     @ConditionalOnExpression("!T(site.easy.to.build.crm.util.StringUtils).isEmpty('${spring.security.oauth2.client.registration.google.client-id:}')")
     public String refreshAccessTokenIfNeeded(OAuthUser oauthUser) {
+        if (oauthUser == null || oauthUser.getAccessTokenExpiration() == null) {
+            return null;
+        }
         Instant now = Instant.now();
         if (now.isBefore(oauthUser.getAccessTokenExpiration())) {
+            return oauthUser.getAccessToken();
+        }
+
+        if (oauthUser.getRefreshToken() == null || oauthUser.getRefreshToken().isBlank()) {
             return oauthUser.getAccessToken();
         }
 

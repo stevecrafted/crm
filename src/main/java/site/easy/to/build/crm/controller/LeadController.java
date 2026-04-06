@@ -37,6 +37,7 @@ import site.easy.to.build.crm.util.*;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -190,6 +191,7 @@ public class LeadController {
         lead.setCustomer(customer);
         lead.setEmployee(employee);
         lead.setManager(manager);
+        lead.setExpense(normalizeExpense(lead.getExpense()));
         lead.setGoogleDriveFolderId(folderId);
         lead.setCreatedAt(LocalDateTime.now());
 
@@ -412,6 +414,7 @@ public class LeadController {
         lead.setCustomer(customer);
         lead.setEmployee(employee);
         lead.setManager(manager);
+        lead.setExpense(normalizeExpense(lead.getExpense()));
         lead.setGoogleDriveFolderId(folderId);
         lead.setCreatedAt(originalLead.getCreatedAt());
         fileUtil.deleteOldFiles(oldFiles, lead);
@@ -506,7 +509,14 @@ public class LeadController {
         if (!prevLead.getCustomer().equals(lead.getCustomer())) {
             changes.append("The lead's customer changes from ").append(prevLead.getCustomer().getName()).append(" To ").append(lead.getCustomer().getName()).append('.');
         }
+        if (!Objects.equals(prevLead.getExpense(), lead.getExpense())) {
+            changes.append("The lead's expense changes from ").append(prevLead.getExpense()).append(" To ").append(lead.getExpense()).append('.');
+        }
         return changes;
+    }
+
+    private BigDecimal normalizeExpense(BigDecimal expense) {
+        return expense == null ? BigDecimal.ZERO : expense;
     }
 
     private void saveLeadActions(Lead lead, Lead prevLead) {

@@ -10,10 +10,14 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import site.easy.to.build.crm.config.oauth2.CustomOAuth2UserService;
 import site.easy.to.build.crm.config.oauth2.OAuthLoginSuccessHandler;
 import site.easy.to.build.crm.service.user.OAuthUserService;
@@ -24,6 +28,8 @@ import java.util.Optional;
 
 @Configuration
 public class SecurityConfig {
+
+        private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
 
     private final OAuthLoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -62,6 +68,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/register/**").permitAll()
                         .requestMatchers("/set-employee-password/**").permitAll()
+                        .requestMatchers("/set-password/**").permitAll()
                         .requestMatchers("/change-password/**").permitAll()
                         .requestMatchers("/font-awesome/**").permitAll()
                         .requestMatchers("/fonts/**").permitAll()
@@ -79,7 +86,7 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
                         .defaultSuccessUrl("/", true)
-                        .failureUrl("/login")
+                        .failureHandler(employeeAuthenticationFailureHandler())
                         .permitAll()
                 ).userDetailsService(crmUserDetails)
                 .oauth2Login(oauth2 -> oauth2
@@ -131,7 +138,7 @@ public class SecurityConfig {
                 .formLogin((form) -> form
                         .loginPage("/customer-login")
                         .loginProcessingUrl("/customer-login")
-                        .failureUrl("/customer-login")
+                        .failureHandler(customerAuthenticationFailureHandler())
                         .defaultSuccessUrl("/", true)
                         .permitAll()).userDetailsService(customerUserDetails)
                 .logout((logout) -> logout
@@ -146,4 +153,24 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+        @Bean
+        public AuthenticationFailureHandler employeeAuthenticationFailureHandler() {
+                SimpleUrlAuthenticationFailureHandler handler = new SimpleUrlAuthenticationFailureHandler("/login?error");
+                handler.setUseForward(false);
+                return (request, response, exception) -> {
+                        log.error("Employee login failed for username='{}' from ip='{}'", request.getParameter("username"), request.getRemoteAddr(), exception);
+                        handler.onAuthenticationFailure(request, response, exception);
+                };
+        }
+
+        @Bean
+        public AuthenticationFailureHandler customerAuthenticationFailureHandler() {
+                SimpleUrlAuthenticationFailureHandler handler = new SimpleUrlAuthenticationFailureHandler("/customer-login?error");
+                handler.setUseForward(false);
+                return (request, response, exception) -> {
+                        log.error("Customer login failed for username='{}' from ip='{}'", request.getParameter("username"), request.getRemoteAddr(), exception);
+                        handler.onAuthenticationFailure(request, response, exception);
+                };
+        }
 }

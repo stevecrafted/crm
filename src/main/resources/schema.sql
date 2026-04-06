@@ -1,4 +1,5 @@
---CREATE DATABASE  IF NOT EXISTS `crm` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+-- CREATE DATABASE  IF NOT EXISTS `crm` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+
 USE `crm`;
 
 -- MySQL dump 10.13  Distrib 8.0.33, for Win64 (x86_64)
@@ -21,7 +22,7 @@ USE `crm`;
 
 --
 -- Table structure for table `users`
-----
+--
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -52,13 +53,13 @@ CREATE TABLE IF NOT EXISTS `users` (
 CREATE TABLE IF NOT EXISTS `oauth_users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
-  `access_token` varchar(255) NOT NULL,
+  `access_token` TEXT NOT NULL,
   `access_token_issued_at` datetime NOT NULL,
   `access_token_expiration` datetime NOT NULL,
-  `refresh_token` varchar(255) NOT NULL,
-  `refresh_token_issued_at` datetime NOT NULL,
+  `refresh_token` TEXT DEFAULT NULL,
+  `refresh_token_issued_at` datetime DEFAULT NULL,
   `refresh_token_expiration` datetime DEFAULT NULL,
-  `granted_scopes` varchar(255) DEFAULT NULL,
+  `granted_scopes` TEXT DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
@@ -505,3 +506,82 @@ CREATE TABLE IF NOT EXISTS `google_drive_file` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+ALTER TABLE oauth_users MODIFY access_token TEXT NOT NULL;
+ALTER TABLE oauth_users MODIFY refresh_token TEXT NULL;
+ALTER TABLE oauth_users MODIFY refresh_token_issued_at DATETIME NULL;
+ALTER TABLE oauth_users MODIFY refresh_token_expiration DATETIME NULL;
+ALTER TABLE oauth_users MODIFY granted_scopes TEXT NULL;
+
+CREATE TABLE IF NOT EXISTS `Budget` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT, 
+  `amount` decimal(10,0) DEFAULT NULL,
+  `customer_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`), 
+  KEY `customer_id` (`customer_id`),
+  CONSTRAINT `Budget_ibfk_6` FOREIGN KEY (`customer_id`) REFERENCES `customer_login_info` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE lead_settings ADD COLUMN Expense decimal(10, 0);
+ALTER TABLE ticket_settings ADD COLUMN Expense decimal(10, 0);
+
+-- Budget - (expense lead + expense ticket)
+CREATE VIEW MontantAvailablePerCustomer AS 
+  SELECT 
+    c.username,
+
+    bu.total_budget,
+    ls.total_depense_lead,
+    ts.total_depense_ticket,
+
+    bu.total_budget - (ls.total_depense_lead + ts.total_depense_ticket) AS reste
+
+  FROM customer_login_info c
+
+  LEFT JOIN (
+      SELECT customer_id, SUM(amount) AS total_budget
+      FROM Budget
+      GROUP BY customer_id
+  ) bu ON bu.customer_id = c.id
+
+  LEFT JOIN (
+      SELECT customer_id, SUM(Expense) AS total_depense_lead
+      FROM lead_settings
+      GROUP BY customer_id
+  ) ls ON ls.customer_id = c.id
+
+  LEFT JOIN (
+      SELECT customer_id, SUM(Expense) AS total_depense_ticket
+      FROM ticket_settings
+      GROUP BY customer_id
+  ) ts ON ts.customer_id = c.id;
+
+
+CREATE TABLE IF NOT EXISTS `Parametre` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,  
+  `nom` varchar(255) DEFAULT NULL, 
+  `valeur`  decimal(10,0) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --- Données
+-- INSERT INTO customer_login_info (id, username)
+-- VALUES 
+-- (1, 'client1'),
+-- (2, 'client2');
+
+-- INSERT INTO Budget (amount, customer_id)
+-- VALUES
+-- (1000, 1),
+-- (2000, 2);
+
+-- INSERT INTO lead_settings (name, Expense, customer_id)
+-- VALUES
+-- (1, 100, 1),
+-- (1, 50, 1),
+-- (2, 200, 2);
+
+-- INSERT INTO ticket_settings (Expense, customer_id)
+-- VALUES
+-- (150, 1),
+-- (50, 1),
+-- (300, 2);

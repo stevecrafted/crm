@@ -23,11 +23,11 @@ public class CustomerLoginController {
     @GetMapping("/set-password")
     public String showPasswordForm(Model model, @RequestParam("token") @Nullable String token) {
         if(token == null) {
-            return "redirect:/set-password";
+            return "redirect:/set-password?noToken";
         }
         CustomerLoginInfo customerLoginInfo = customerLoginInfoService.findByToken(token);
         if(customerLoginInfo == null) {
-            return "redirect:/set-password";
+            return "redirect:/set-password?NoCustomerLoginInfo";
         }
         model.addAttribute("customerLoginInfo", customerLoginInfo);
         return "set-password";
@@ -48,8 +48,8 @@ public class CustomerLoginController {
             customerLoginInfo1.setPasswordSet(true);
             customerLoginInfoService.save(customerLoginInfo1);
         }
-        return "redirect:/customer-login";
-    }
+        return "redirect:/customer-login?post";
+    }   
     @RequestMapping("/customer-login")
     public String showCustomerLoginForm() {
         return "customer-login";

@@ -49,6 +49,11 @@ public class GoogleSettingsController {
         User user = userService.findById(userId);
         OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
 
+        if (oAuthUser == null) {
+            model.addAttribute("oAuthUser", null);
+            return "google-settings";
+        }
+
         List<String> scopesToCheck = Arrays.asList(
                 GoogleAccessService.SCOPE_CALENDAR,
                 GoogleAccessService.SCOPE_GMAIL,

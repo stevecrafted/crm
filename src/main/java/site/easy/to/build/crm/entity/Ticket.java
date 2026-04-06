@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.hibernate.mapping.ToOne;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -32,6 +33,9 @@ public class Ticket {
     @Pattern(regexp = "^(low|medium|high|closed|urgent|critical)$", message = "Invalid priority")
 
     private String priority;
+
+    @Column(name = "expense", precision = 10, scale = 0)
+    private BigDecimal expense;
 
     @ManyToOne
     @JoinColumn(name = "manager_id")
@@ -132,5 +136,13 @@ public class Ticket {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public BigDecimal getExpense() {
+        return expense;
+    }
+
+    public void setExpense(BigDecimal expense) {
+        this.expense = expense;
     }
 }

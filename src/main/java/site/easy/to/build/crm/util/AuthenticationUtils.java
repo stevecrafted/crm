@@ -36,10 +36,13 @@ public class AuthenticationUtils {
     }
 
     public OAuthUser getOAuthUserFromAuthentication(Authentication authentication) {
-        if(oAuthUserService == null){
+        if (oAuthUserService == null || authentication == null || !(authentication.getPrincipal() instanceof OAuth2User oauth2User)) {
             return null;
         }
-        String email = ((OAuth2User)authentication.getPrincipal()).getAttribute("email");
+        String email = oauth2User.getAttribute("email");
+        if (email == null || email.isBlank()) {
+            return null;
+        }
         return oAuthUserService.findBtEmail(email);
     }
 

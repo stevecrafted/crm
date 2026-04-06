@@ -84,7 +84,6 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
 
 
         // Get the access and the refresh token from the OAuth2AuthorizedClient
-
         OAuth2AccessToken oAuth2AccessToken = authorizedClient.getAccessToken();
         OAuth2RefreshToken oAuth2RefreshToken = authorizedClient.getRefreshToken();
 

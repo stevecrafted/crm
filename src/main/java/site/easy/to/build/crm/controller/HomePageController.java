@@ -63,8 +63,19 @@ public class HomePageController {
         long countContracts;
 
         if(AuthorizationUtil.hasRole(authentication,"ROLE_CUSTOMER")) {
-            String email = customerLoginInfoService.findById(userId).getEmail();
+            CustomerLoginInfo customerLoginInfo = customerLoginInfoService.findById(userId);
+            if (customerLoginInfo == null) {
+                System.out.println("null customer login");
+                return "redirect:/customer-login?customerloginnull";
+            }
+
+            String email = customerLoginInfo.getEmail();
             Customer customer = customerService.findByEmail(email);
+            if (customer == null) {
+                System.out.println("null customer");
+                return "redirect:/customer-login?customerSecondNull";
+            }
+
             userId = customer.getCustomerId();
             tickets = ticketService.getRecentCustomerTickets(userId, 10);
             countTickets = ticketService.countByCustomerCustomerId(userId);
@@ -91,7 +102,7 @@ public class HomePageController {
             if (!(authentication instanceof UsernamePasswordAuthenticationToken) && googleCalendarApiService != null) {
                 isGoogleUser = true;
                 OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
-                if (oAuthUser.getGrantedScopes().contains(GoogleAccessService.SCOPE_CALENDAR)) {
+                if (oAuthUser != null && oAuthUser.getGrantedScopes().contains(GoogleAccessService.SCOPE_CALENDAR)) {
                     try {
                         hasCalendarAccess = true;
                         EventDisplayList eventDisplayList = googleCalendarApiService.getEvents("primary", oAuthUser);

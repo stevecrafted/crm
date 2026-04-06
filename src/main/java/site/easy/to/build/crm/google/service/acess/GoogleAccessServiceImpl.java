@@ -137,6 +137,9 @@ public class GoogleAccessServiceImpl implements GoogleAccessService {
     }
 
     public void verifyAccessAndHandleRevokedToken(OAuthUser oAuthUser, User user, List<String> scopesToCheck) throws IOException {
+        if (oAuthUser == null || oAuthUser.getRefreshToken() == null || oAuthUser.getRefreshToken().isBlank()) {
+            return;
+        }
         try {
             // Request a new access token using the refresh token
             HttpTransport httpTransport = new NetHttpTransport();

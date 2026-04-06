@@ -34,6 +34,7 @@ public class CustomerUserDetails implements UserDetailsService {
             throw new UsernameNotFoundException("Customer not found with email: " + email);
         }
 
+        System.out.println("hita le customer " + email);
         // Create and return a UserDetails object based on the retrieved customer
         return new org.springframework.security.core.userdetails.User(
                 customer.getEmail(),

@@ -24,6 +24,7 @@ import site.easy.to.build.crm.util.*;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -98,6 +99,7 @@ public class TicketController {
         model.addAttribute("tickets",tickets);
         return "ticket/my-tickets";
     }
+    
     @GetMapping("/create-ticket")
     public String showTicketCreationForm(Model model, Authentication authentication) {
         int userId = authenticationUtils.getLoggedInUserId(authentication);
@@ -167,6 +169,7 @@ public class TicketController {
         ticket.setCustomer(customer);
         ticket.setManager(manager);
         ticket.setEmployee(employee);
+        ticket.setExpense(normalizeExpense(ticket.getExpense()));
         ticket.setCreatedAt(LocalDateTime.now());
 
         ticketService.save(ticket);
@@ -284,6 +287,7 @@ public class TicketController {
         ticket.setCustomer(customer);
         ticket.setManager(manager);
         ticket.setEmployee(employee);
+        ticket.setExpense(normalizeExpense(ticket.getExpense()));
         Ticket currentTicket = ticketService.save(ticket);
 
         List<String> properties = DatabaseUtil.getColumnNames(entityManager, Ticket.class);
@@ -372,5 +376,9 @@ public class TicketController {
                 }
             }
         }
+    }
+
+    private BigDecimal normalizeExpense(BigDecimal expense) {
+        return expense == null ? BigDecimal.ZERO : expense;
     }
 }

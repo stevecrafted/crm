@@ -82,6 +82,7 @@
                                         <th>#</th>
                                         <th>Subject</th>
                                         <th>priority</th>
+                                        <th>Expense</th>
                                         <th>Status</th>
                                         <th>Customer</th>
                                         <th>Assigned Employee</th>
@@ -95,6 +96,7 @@
                                         <td th:text="${ticket.ticketId}"></td>
                                         <td th:text="${ticket.subject}"></td>
                                         <td th:text="${ticket.priority}"></td>
+                                        <td th:text="${ticket.expense}"></td>
                                         <td th:text="${ticket.status}"></td>
                                         <td th:text="${ticket.customer.name}"></td>
                                         <td th:text="${ticket.employee.username}"></td>
