@@ -86,6 +86,8 @@
                                         <th>Employee Email</th>
                                         <th>Employee name</th>
                                         <th>Show</th>
+                                        <th>Expense</th>
+                                        
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -96,7 +98,8 @@
                                         <td th:text="${ticket.status}"></td>
                                         <td th:text="${ticket.employee.email}"></td>
                                         <td th:text="${ticket.employee.username}"></td>
-                                        <td><a th:href="${home + 'customer/ticket/' + ${ticket.ticketId}"><i class="fas fa-eye"></i></a></td>
+                                        <td><a th:href="${home} + 'customer/ticket/' + ${ticket.ticketId}"><i class="fas fa-eye"></i></a></td>
+                                        <td th:text="${ticket.Expense}"></td>
                                     </tr>
                                     </tbody>
                                 </table>

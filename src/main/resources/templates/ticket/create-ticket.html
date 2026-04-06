@@ -70,6 +70,12 @@
                     <div class="card">
                         <div class="card-body">
                             <h4 class="card-title">Create New Ticket</h4>
+                            <div th:if="${budgetToleranceLimit != null}" class="alert alert-info">
+                                <span th:text="|Seuil de tolérance budget: ${budgetToleranceLimit}%|"></span>
+                            </div>
+                            <div th:if="${errorMessage}" class="alert alert-danger">
+                                <span th:text="${errorMessage}"></span>
+                            </div>
                             <form th:object="${ticket}" th:action="@{/employee/ticket/create-ticket}" method="post">
 
                                 <label class="m-t-20" for="subject">Subject:</label>

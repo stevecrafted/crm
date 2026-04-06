@@ -71,6 +71,12 @@
                     <div class="card">
                         <div class="card-body">
                             <h4 class="card-title" th:text="'update ' + ${lead.name} + ' lead'"></h4>
+                            <div th:if="${budgetToleranceLimit != null}" class="alert alert-info">
+                                <span th:text="|Seuil de tolérance budget: ${budgetToleranceLimit}%|"></span>
+                            </div>
+                            <div th:if="${errorMessage}" class="alert alert-danger">
+                                <span th:text="${errorMessage}"></span>
+                            </div>
                             <form th:object="${lead}" id="email-form" th:action="@{/employee/lead/update}" method="post">
                                 <input type="hidden" id="allFiles" name="allFiles">
                                 <input type="hidden" id="leadId" name="leadId" th:field="*{leadId}">

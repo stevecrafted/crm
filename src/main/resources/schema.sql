@@ -248,6 +248,7 @@ CREATE TABLE IF NOT EXISTS `trigger_lead` (
   `meeting_id` varchar(255) DEFAULT NULL,
   `google_drive` tinyint(1) DEFAULT NULL,
   `google_drive_folder_id` varchar(255) DEFAULT NULL,
+  `expense` decimal(10, 0) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,
   PRIMARY KEY (`lead_id`),
   UNIQUE KEY `meeting_info` (`meeting_id`),
@@ -276,6 +277,7 @@ CREATE TABLE IF NOT EXISTS `trigger_ticket` (
   `customer_id` int unsigned NOT NULL,
   `manager_id` int DEFAULT NULL,
   `employee_id` int DEFAULT NULL,
+  `expense` decimal(10, 0) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,
   PRIMARY KEY (`ticket_id`),
   KEY `fk_ticket_customer` (`customer_id`),
@@ -393,6 +395,7 @@ CREATE TABLE IF NOT EXISTS `lead_settings` (
   `meeting` tinyint(1) DEFAULT NULL,
   `phone` tinyint(1) DEFAULT NULL,
   `name` tinyint(1) DEFAULT NULL,
+  `Expense` decimal(10, 0) DEFAULT NULL,
   `user_id` int DEFAULT NULL,
   `status_email_template` int unsigned DEFAULT NULL,
   `phone_email_template` int unsigned DEFAULT NULL,
@@ -432,6 +435,7 @@ CREATE TABLE IF NOT EXISTS `ticket_settings` (
   `subject` tinyint(1) DEFAULT NULL,
   `description` tinyint(1) DEFAULT NULL,
   `status` tinyint(1) DEFAULT NULL,
+  `Expense` decimal(10, 0) DEFAULT NULL,
   `user_id` int DEFAULT NULL,
   `status_email_template` int unsigned DEFAULT NULL,
   `subject_email_template` int unsigned DEFAULT NULL,
@@ -515,47 +519,46 @@ ALTER TABLE oauth_users MODIFY granted_scopes TEXT NULL;
 CREATE TABLE IF NOT EXISTS `Budget` (
   `id` int unsigned NOT NULL AUTO_INCREMENT, 
   `amount` decimal(10,0) DEFAULT NULL,
-  `customer_id` int DEFAULT NULL,
+  `customer_id` int unsigned DEFAULT NULL,
   PRIMARY KEY (`id`), 
-  KEY `customer_id` (`customer_id`),
-  CONSTRAINT `Budget_ibfk_6` FOREIGN KEY (`customer_id`) REFERENCES `customer_login_info` (`id`)
+  KEY `customer` (`customer_id`),
+  CONSTRAINT `Budget_ibfk_6` FOREIGN KEY (`customer_id`) REFERENCES `customer` (`customer_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-ALTER TABLE lead_settings ADD COLUMN Expense decimal(10, 0);
-ALTER TABLE ticket_settings ADD COLUMN Expense decimal(10, 0);
 
 -- Budget - (expense lead + expense ticket)
-CREATE VIEW MontantAvailablePerCustomer AS 
-  SELECT 
-    c.id,
-    c.username,
+CREATE OR REPLACE VIEW montant_available_per_customer AS 
+      SELECT 
+        c.customer_id as id,
+        c.name as username,
 
-    bu.total_budget,
-    ls.total_depense_lead,
-    ts.total_depense_ticket,
+        COALESCE(bu.total_budget, 0) AS total_budget,
+        COALESCE(ls.total_depense_lead, 0) AS total_depense_lead,
+        COALESCE(ts.total_depense_ticket, 0) AS total_depense_ticket,
 
-    bu.total_budget - (ls.total_depense_lead + ts.total_depense_ticket) AS reste
+        COALESCE(bu.total_budget, 0) - (
+          COALESCE(ls.total_depense_lead, 0) + COALESCE(ts.total_depense_ticket, 0)
+        ) AS reste
 
-  FROM customer_login_info c
+      FROM customer c
 
-  LEFT JOIN (
-      SELECT customer_id, SUM(amount) AS total_budget
-      FROM Budget
-      GROUP BY customer_id
-  ) bu ON bu.customer_id = c.id
+      LEFT JOIN (
+          SELECT customer_id, SUM(amount) AS total_budget
+          FROM Budget
+          GROUP BY customer_id
+      ) bu ON bu.customer_id = c.customer_id
 
-  LEFT JOIN (
-      SELECT customer_id, SUM(Expense) AS total_depense_lead
-      FROM lead_settings
-      GROUP BY customer_id
-  ) ls ON ls.customer_id = c.id
+      LEFT JOIN (
+          SELECT customer_id, SUM(expense) AS total_depense_lead
+          FROM trigger_lead
+          GROUP BY customer_id
+      ) ls ON ls.customer_id = c.customer_id
 
-  LEFT JOIN (
-      SELECT customer_id, SUM(Expense) AS total_depense_ticket
-      FROM ticket_settings
-      GROUP BY customer_id
-  ) ts ON ts.customer_id = c.id;
-
+      LEFT JOIN (
+          SELECT customer_id, SUM(expense) AS total_depense_ticket
+          FROM trigger_ticket
+          GROUP BY customer_id
+      ) ts ON ts.customer_id = c.customer_id;
 
 CREATE TABLE IF NOT EXISTS `Parametre` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,  
@@ -565,6 +568,10 @@ CREATE TABLE IF NOT EXISTS `Parametre` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --- Données
+-- INSERT INTO Parametre (id, nom, valeur)
+-- VALUES 
+-- (1, 'depense_tolerance', 95);
+
 -- INSERT INTO customer_login_info (id, username)
 -- VALUES 
 -- (1, 'client1'),
@@ -572,7 +579,7 @@ CREATE TABLE IF NOT EXISTS `Parametre` (
 
 -- INSERT INTO Budget (amount, customer_id)
 -- VALUES
--- (1000, 1),
+-- (5000, 43);
 -- (2000, 2);
 
 -- INSERT INTO lead_settings (name, Expense, customer_id)

@@ -16,6 +16,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import site.easy.to.build.crm.entity.*;
 import site.easy.to.build.crm.entity.settings.LeadEmailSettings;
 import site.easy.to.build.crm.google.model.calendar.EventDisplay;
@@ -25,6 +26,8 @@ import site.easy.to.build.crm.google.service.acess.GoogleAccessService;
 import site.easy.to.build.crm.google.service.calendar.GoogleCalendarApiService;
 import site.easy.to.build.crm.google.service.drive.GoogleDriveApiService;
 import site.easy.to.build.crm.google.service.gmail.GoogleGmailApiService;
+import site.easy.to.build.crm.service.budget.BudgetToleranceRuleService;
+import site.easy.to.build.crm.service.budget.BudgetToleranceViolationException;
 import site.easy.to.build.crm.service.customer.CustomerService;
 import site.easy.to.build.crm.service.drive.GoogleDriveFileService;
 import site.easy.to.build.crm.service.file.FileService;
@@ -52,6 +55,7 @@ public class LeadController {
     private final AuthenticationUtils authenticationUtils;
     private final UserService userService;
     private final CustomerService customerService;
+    private final BudgetToleranceRuleService budgetToleranceRuleService;
     private final LeadActionService leadActionService;
     private final GoogleCalendarApiService googleCalendarApiService;
     private final FileService fileService;
@@ -64,6 +68,7 @@ public class LeadController {
 
     @Autowired
     public LeadController(LeadService leadService, AuthenticationUtils authenticationUtils, UserService userService, CustomerService customerService,
+                          BudgetToleranceRuleService budgetToleranceRuleService,
                           LeadActionService leadActionService, GoogleCalendarApiService googleCalendarApiService, FileService fileService,
                           GoogleDriveApiService googleDriveApiService, GoogleDriveFileService googleDriveFileService, FileUtil fileUtil,
                           LeadEmailSettingsService leadEmailSettingsService, GoogleGmailApiService googleGmailApiService, EntityManager entityManager) {
@@ -71,6 +76,7 @@ public class LeadController {
         this.authenticationUtils = authenticationUtils;
         this.userService = userService;
         this.customerService = customerService;
+        this.budgetToleranceRuleService = budgetToleranceRuleService;
         this.leadActionService = leadActionService;
         this.googleCalendarApiService = googleCalendarApiService;
         this.fileService = fileService;
@@ -161,6 +167,7 @@ public class LeadController {
             return "error/account-inactive";
         }
         populateModelAttributes(model, authentication, user);
+        addBudgetToleranceInfo(model);
         model.addAttribute("lead", new Lead());
         return "lead/create-lead";
     }
@@ -169,7 +176,8 @@ public class LeadController {
     public String createLead(@ModelAttribute("lead") @Validated Lead lead, BindingResult bindingResult,
                              @RequestParam("customerId") int customerId, @RequestParam("employeeId") int employeeId,
                              Authentication authentication, @RequestParam("allFiles")@Nullable String files,
-                             @RequestParam("folderId") @Nullable String folderId, Model model) throws JsonProcessingException {
+                             @RequestParam("folderId") @Nullable String folderId, Model model,
+                             RedirectAttributes redirectAttributes) throws JsonProcessingException {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User manager = userService.findById(userId);
@@ -180,6 +188,7 @@ public class LeadController {
         if(bindingResult.hasErrors()) {
             User user = userService.findById(userId);
             populateModelAttributes(model, authentication, user);
+            addBudgetToleranceInfo(model);
             return "lead/create-lead";
         }
 
@@ -192,6 +201,23 @@ public class LeadController {
         lead.setEmployee(employee);
         lead.setManager(manager);
         lead.setExpense(normalizeExpense(lead.getExpense()));
+
+        Integer customerLoginInfoId = customer.getCustomerLoginInfo() != null ? customer.getCustomerLoginInfo().getId() : null;
+        try {
+            if (customerLoginInfoId != null) {
+                budgetToleranceRuleService.validateExpenseDeltaOrThrow(customerLoginInfoId, lead.getExpense());
+            }
+        } catch (BudgetToleranceViolationException e) {
+            System.out.println(e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/employee/lead/create";
+        } catch (Exception e) {
+            String causeMessage = e.getCause() != null && e.getCause().getMessage() != null ? e.getCause().getMessage() : e.getMessage();
+            System.out.println("Erreur budget lead create: " + causeMessage);
+            redirectAttributes.addFlashAttribute("errorMessage", "Impossible de verifier le budget: " + causeMessage);
+            return "redirect:/employee/lead/create";
+        }
+
         lead.setGoogleDriveFolderId(folderId);
         lead.setCreatedAt(LocalDateTime.now());
 
@@ -211,6 +237,13 @@ public class LeadController {
         }
 
         Lead createdLead = leadService.save(lead);
+
+        if (customerLoginInfoId != null
+            && budgetToleranceRuleService.isToleranceExceededAfterDelta(customerLoginInfoId, lead.getExpense())) {
+            redirectAttributes.addFlashAttribute("warningMessage",
+                "Seuil de tolerance depasse: le lead est enregistre, mais le budget restant est sous le seuil.");
+        }
+
         fileUtil.saveFiles(allFiles, createdLead);
 
         if (lead.getGoogleDrive() != null) {
@@ -299,13 +332,15 @@ public class LeadController {
         model.addAttribute("attachments", attachments);
         model.addAttribute("folders", folders);
         model.addAttribute("hasGoogleDriveAccess",hasGoogleDriveAccess);
+        addBudgetToleranceInfo(model);
         return "lead/update-lead";
     }
 
     @PostMapping("/update")
     public String updateLead(@ModelAttribute("lead") @Validated Lead lead, BindingResult bindingResult, @RequestParam("customerId") int customerId,
                              @RequestParam("employeeId") int employeeId, Authentication authentication, Model model,
-                             @RequestParam("allFiles") @Nullable String files, @RequestParam("folderId") @Nullable String folderId) throws JsonProcessingException {
+                             @RequestParam("allFiles") @Nullable String files, @RequestParam("folderId") @Nullable String folderId,
+                             RedirectAttributes redirectAttributes) throws JsonProcessingException {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
@@ -395,6 +430,7 @@ public class LeadController {
             model.addAttribute("attachments", attachments);
             model.addAttribute("folders", folders);
             model.addAttribute("hasGoogleDriveAccess",hasGoogleDriveAccess);
+            addBudgetToleranceInfo(model);
             return "lead/update-lead";
         }
 
@@ -415,6 +451,25 @@ public class LeadController {
         lead.setEmployee(employee);
         lead.setManager(manager);
         lead.setExpense(normalizeExpense(lead.getExpense()));
+
+        BigDecimal previousExpense = normalizeExpense(originalLead.getExpense());
+        BigDecimal expenseDelta = lead.getExpense().subtract(previousExpense);
+        Integer customerLoginInfoId = customer.getCustomerLoginInfo() != null ? customer.getCustomerLoginInfo().getId() : null;
+        try {
+            if (customerLoginInfoId != null) {
+                budgetToleranceRuleService.validateExpenseDeltaOrThrow(customerLoginInfoId, expenseDelta);
+            }
+        } catch (BudgetToleranceViolationException e) {
+            System.out.println(e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/employee/lead/update/" + lead.getLeadId();
+        } catch (Exception e) {
+            String causeMessage = e.getCause() != null && e.getCause().getMessage() != null ? e.getCause().getMessage() : e.getMessage();
+            System.out.println("Erreur budget lead update: " + causeMessage);
+            redirectAttributes.addFlashAttribute("errorMessage", "Impossible de verifier le budget: " + causeMessage);
+            return "redirect:/employee/lead/update/" + lead.getLeadId();
+        }
+
         lead.setGoogleDriveFolderId(folderId);
         lead.setCreatedAt(originalLead.getCreatedAt());
         fileUtil.deleteOldFiles(oldFiles, lead);
@@ -434,6 +489,13 @@ public class LeadController {
             fileUtil.saveGoogleDriveFiles(authentication,allFiles,folderId,lead);
         }
         Lead CurrentLead = leadService.save(lead);
+
+        if (customerLoginInfoId != null
+            && budgetToleranceRuleService.isToleranceExceededAfterDelta(customerLoginInfoId, expenseDelta)) {
+            redirectAttributes.addFlashAttribute("warningMessage",
+                "Seuil de tolerance depasse: la mise a jour est enregistree, mais le budget restant est sous le seuil.");
+        }
+
         saveLeadActions(lead, prevLead);
         List<String> properties = DatabaseUtil.getColumnNames(entityManager, Lead.class);
         Map<String, Pair<String ,String>> changes = LogEntityChanges.trackChanges(originalLead,CurrentLead, properties);
@@ -451,6 +513,13 @@ public class LeadController {
             }
         }
         return "redirect:/employee/lead/assigned-leads";
+    }
+
+    private void addBudgetToleranceInfo(Model model) {
+        BigDecimal toleranceLimit = budgetToleranceRuleService.getToleranceLimit();
+        if (toleranceLimit != null) {
+            model.addAttribute("budgetToleranceLimit", toleranceLimit);
+        }
     }
 
     @PostMapping("/delete/{id}")

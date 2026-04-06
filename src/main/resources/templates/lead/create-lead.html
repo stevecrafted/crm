@@ -71,6 +71,12 @@
                     <div class="card">
                         <div class="card-body">
                             <h4 class="card-title">Create New Lead</h4>
+                            <div th:if="${budgetToleranceLimit != null}" class="alert alert-info">
+                                <span th:text="|Seuil de tolérance budget: ${budgetToleranceLimit}%|"></span>
+                            </div>
+                            <div th:if="${errorMessage}" class="alert alert-danger">
+                                <span th:text="${errorMessage}"></span>
+                            </div>
                             <form th:object="${lead}" th:action="@{/employee/lead/create}" enctype="multipart/form-data" id="email-form" method="post">
                                 <input type="hidden" id="allFiles" name="allFiles">
                                 <label class="m-t-20" for="name">Name:</label>

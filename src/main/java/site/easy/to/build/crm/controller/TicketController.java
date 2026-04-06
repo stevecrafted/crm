@@ -11,10 +11,13 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import site.easy.to.build.crm.entity.*;
 import site.easy.to.build.crm.entity.settings.TicketEmailSettings;
 import site.easy.to.build.crm.google.service.acess.GoogleAccessService;
 import site.easy.to.build.crm.google.service.gmail.GoogleGmailApiService;
+import site.easy.to.build.crm.service.budget.BudgetToleranceRuleService;
+import site.easy.to.build.crm.service.budget.BudgetToleranceViolationException;
 import site.easy.to.build.crm.service.customer.CustomerService;
 import site.easy.to.build.crm.service.settings.TicketEmailSettingsService;
 import site.easy.to.build.crm.service.ticket.TicketService;
@@ -39,6 +42,7 @@ public class TicketController {
     private final AuthenticationUtils authenticationUtils;
     private final UserService userService;
     private final CustomerService customerService;
+    private final BudgetToleranceRuleService budgetToleranceRuleService;
     private final TicketEmailSettingsService ticketEmailSettingsService;
     private final GoogleGmailApiService googleGmailApiService;
     private final EntityManager entityManager;
@@ -46,11 +50,13 @@ public class TicketController {
 
     @Autowired
     public TicketController(TicketService ticketService, AuthenticationUtils authenticationUtils, UserService userService, CustomerService customerService,
+                            BudgetToleranceRuleService budgetToleranceRuleService,
                             TicketEmailSettingsService ticketEmailSettingsService, GoogleGmailApiService googleGmailApiService, EntityManager entityManager) {
         this.ticketService = ticketService;
         this.authenticationUtils = authenticationUtils;
         this.userService = userService;
         this.customerService = customerService;
+        this.budgetToleranceRuleService = budgetToleranceRuleService;
         this.ticketEmailSettingsService = ticketEmailSettingsService;
         this.googleGmailApiService = googleGmailApiService;
         this.entityManager = entityManager;
@@ -120,6 +126,7 @@ public class TicketController {
 
         model.addAttribute("employees",employees);
         model.addAttribute("customers",customers);
+        addBudgetToleranceInfo(model);
         model.addAttribute("ticket", new Ticket());
         return "ticket/create-ticket";
     }
@@ -127,16 +134,21 @@ public class TicketController {
     @PostMapping("/create-ticket")
     public String createTicket(@ModelAttribute("ticket") @Validated Ticket ticket, BindingResult bindingResult, @RequestParam("customerId") int customerId,
                                @RequestParam Map<String, String> formParams, Model model,
-                               @RequestParam("employeeId") int employeeId, Authentication authentication) {
+                               @RequestParam("employeeId") int employeeId, Authentication authentication,
+                               RedirectAttributes redirectAttributes) {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User manager = userService.findById(userId);
         if(manager == null) {
+            System.out.println("manager null");
+
             return "error/500";
         }
         if(manager.isInactiveUser()) {
+            System.out.println("compte tsy active");
             return "error/account-inactive";
         }
+
         if(bindingResult.hasErrors()) {
             List<User> employees = new ArrayList<>();
             List<Customer> customers;
@@ -151,6 +163,7 @@ public class TicketController {
 
             model.addAttribute("employees",employees);
             model.addAttribute("customers",customers);
+            addBudgetToleranceInfo(model);
             return "ticket/create-ticket";
         }
 
@@ -158,10 +171,16 @@ public class TicketController {
         Customer customer = customerService.findByCustomerId(customerId);
 
         if(employee == null || customer == null) {
+            System.out.println("null ny employee na customer");
+
             return "error/500";
         }
         if(AuthorizationUtil.hasRole(authentication, "ROLE_EMPLOYEE")) {
+            System.out.println("Employee tena");
+
             if(userId != employeeId || customer.getUser().getId() != userId) {
+                System.out.println("userId != employeeId || customer.getUser().getId() != userId");
+
                 return "error/500";
             }
         }
@@ -170,9 +189,33 @@ public class TicketController {
         ticket.setManager(manager);
         ticket.setEmployee(employee);
         ticket.setExpense(normalizeExpense(ticket.getExpense()));
+
+        Integer customerLoginInfoId = customer.getCustomerLoginInfo() != null ? customer.getCustomerLoginInfo().getId() : null;
+
+        try {
+            if (customerLoginInfoId != null) {
+                budgetToleranceRuleService.validateExpenseDeltaOrThrow(customerLoginInfoId, ticket.getExpense());
+            }
+        } catch (BudgetToleranceViolationException e) {
+            System.out.println(e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/employee/ticket/create-ticket";
+        } catch (Exception e) {
+            String causeMessage = e.getCause() != null && e.getCause().getMessage() != null ? e.getCause().getMessage() : e.getMessage();
+            System.out.println("Erreur budget ticket create: " + causeMessage);
+            redirectAttributes.addFlashAttribute("errorMessage", "Impossible de verifier le budget: " + causeMessage);
+            return "redirect:/employee/ticket/create-ticket";
+        }
+
         ticket.setCreatedAt(LocalDateTime.now());
 
         ticketService.save(ticket);
+
+        if (customerLoginInfoId != null
+            && budgetToleranceRuleService.isToleranceExceededAfterDelta(customerLoginInfoId, ticket.getExpense())) {
+            redirectAttributes.addFlashAttribute("warningMessage",
+                "Seuil de tolerance depasse: le ticket est enregistre, mais le budget restant est sous le seuil.");
+        }
 
         return "redirect:/employee/ticket/assigned-tickets";
     }
@@ -214,6 +257,7 @@ public class TicketController {
 
         model.addAttribute("employees",employees);
         model.addAttribute("customers",customers);
+        addBudgetToleranceInfo(model);
         model.addAttribute("ticket", ticket);
         return "ticket/update-ticket";
     }
@@ -221,7 +265,7 @@ public class TicketController {
     @PostMapping("/update-ticket")
     public String updateTicket(@ModelAttribute("ticket") @Validated Ticket ticket, BindingResult bindingResult,
                                @RequestParam("customerId") int customerId, @RequestParam("employeeId") int employeeId,
-                               Authentication authentication, Model model) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+                               Authentication authentication, Model model, RedirectAttributes redirectAttributes) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
@@ -268,6 +312,7 @@ public class TicketController {
 
             model.addAttribute("employees",employees);
             model.addAttribute("customers",customers);
+            addBudgetToleranceInfo(model);
             return "ticket/update-ticket";
         }
         if(manager.getId() == employeeId) {
@@ -288,7 +333,32 @@ public class TicketController {
         ticket.setManager(manager);
         ticket.setEmployee(employee);
         ticket.setExpense(normalizeExpense(ticket.getExpense()));
+
+        BigDecimal previousExpense = normalizeExpense(originalTicket.getExpense());
+        BigDecimal expenseDelta = ticket.getExpense().subtract(previousExpense);
+        Integer customerLoginInfoId = customer.getCustomerLoginInfo() != null ? customer.getCustomerLoginInfo().getId() : null;
+        try {
+            if (customerLoginInfoId != null) {
+                budgetToleranceRuleService.validateExpenseDeltaOrThrow(customerLoginInfoId, expenseDelta);
+            }
+        } catch (BudgetToleranceViolationException e) {
+            System.out.println(e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/employee/ticket/update-ticket/" + ticket.getTicketId();
+        } catch (Exception e) {
+            String causeMessage = e.getCause() != null && e.getCause().getMessage() != null ? e.getCause().getMessage() : e.getMessage();
+            System.out.println("Erreur budget ticket update: " + causeMessage);
+            redirectAttributes.addFlashAttribute("errorMessage", "Impossible de verifier le budget: " + causeMessage);
+            return "redirect:/employee/ticket/update-ticket/" + ticket.getTicketId();
+        }
+
         Ticket currentTicket = ticketService.save(ticket);
+
+    if (customerLoginInfoId != null
+        && budgetToleranceRuleService.isToleranceExceededAfterDelta(customerLoginInfoId, expenseDelta)) {
+        redirectAttributes.addFlashAttribute("warningMessage",
+            "Seuil de tolerance depasse: la mise a jour est enregistree, mais le budget restant est sous le seuil.");
+    }
 
         List<String> properties = DatabaseUtil.getColumnNames(entityManager, Ticket.class);
         Map<String, Pair<String,String>> changes = LogEntityChanges.trackChanges(originalTicket,currentTicket,properties);
@@ -321,6 +391,13 @@ public class TicketController {
 
         ticketService.delete(ticket);
         return "redirect:/employee/ticket/assigned-tickets";
+    }
+
+    private void addBudgetToleranceInfo(Model model) {
+        BigDecimal toleranceLimit = budgetToleranceRuleService.getToleranceLimit();
+        if (toleranceLimit != null) {
+            model.addAttribute("budgetToleranceLimit", toleranceLimit);
+        }
     }
 
     private void processEmailSettingsChanges(Map<String, Pair<String, String>> changes, int userId, OAuthUser oAuthUser,

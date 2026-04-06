@@ -23,6 +23,11 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
+    public Customer findByProfileId(int profileId) {
+        return customerRepository.findByCustomerLoginInfo_Id(profileId);
+    }
+
+    @Override
     public Customer findByEmail(String email) {
         return customerRepository.findByEmail(email);
     }

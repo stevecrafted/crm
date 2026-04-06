@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Immutable
-@Table(name = "MontantAvailablePerCustomer")
+@Table(name = "montant_available_per_customer")
 public class MontantAvailablePerCustomer {
 
     @Id
