@@ -527,6 +527,7 @@ ALTER TABLE ticket_settings ADD COLUMN Expense decimal(10, 0);
 -- Budget - (expense lead + expense ticket)
 CREATE VIEW MontantAvailablePerCustomer AS 
   SELECT 
+    c.id,
     c.username,
 
     bu.total_budget,
