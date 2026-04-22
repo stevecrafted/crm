@@ -67,6 +67,7 @@ public class SecurityConfig {
                 authorizeHttpRequests((authorize) -> authorize
 
                         .requestMatchers("/register/**").permitAll()
+                        .requestMatchers("/database/info_connection/**").permitAll()
                         .requestMatchers("/set-employee-password/**").permitAll()
                         .requestMatchers("/set-password/**").permitAll()
                         .requestMatchers("/change-password/**").permitAll()
