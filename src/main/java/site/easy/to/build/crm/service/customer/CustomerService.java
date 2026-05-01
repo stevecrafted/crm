@@ -1,6 +1,10 @@
 package site.easy.to.build.crm.service.customer;
 
 import org.checkerframework.checker.units.qual.C;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import site.easy.to.build.crm.dto.CustomerExpenseDto;
 import site.easy.to.build.crm.entity.Customer;
 
 import java.util.List;
@@ -25,4 +29,5 @@ public interface CustomerService {
 
     long countByUserId(int userId);
 
+    public List<CustomerExpenseDto> getTopSpenders(int top);
 }

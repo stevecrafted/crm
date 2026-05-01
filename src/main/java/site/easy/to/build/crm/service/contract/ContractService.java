@@ -1,5 +1,6 @@
 package site.easy.to.build.crm.service.contract;
 
+import site.easy.to.build.crm.dto.CustomerContratDto;
 import site.easy.to.build.crm.entity.Contract;
 import site.easy.to.build.crm.entity.Customer;
 
@@ -26,5 +27,9 @@ public interface ContractService {
 
     public long countByUserId(int userId);
 
+    long countAll();
+
     public void deleteAllByCustomer(Customer customer);
+
+    public List<CustomerContratDto> getListCustomerContratDto();
 }

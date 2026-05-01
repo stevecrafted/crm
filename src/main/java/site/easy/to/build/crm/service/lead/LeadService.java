@@ -28,6 +28,9 @@ public interface LeadService {
     long countByManagerId(int managerId);
     long countByCustomerId(int customerId);
 
+    long countAll();
+    public List<Lead> getRecenLeads(int limit);
+
     List<Lead> getRecentLeadsByEmployee(int employeeId, int limit);
     List<Lead> getRecentCustomerLeads(int customerId, int limit);
     public void deleteAllByCustomer(Customer customer);

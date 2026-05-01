@@ -13,11 +13,14 @@ public interface LeadRepository extends JpaRepository<Lead, Integer> {
     public Lead findByLeadId(int id);
 
     public List<Lead> findByCustomerCustomerId(int customerId);
+
     public List<Lead> findByManagerId(int userId);
 
     public List<Lead> findByEmployeeId(int userId);
 
     Lead findByMeetingId(String meetingId);
+
+    public List<Lead> findByOrderByCreatedAtDesc(Pageable pageable);
 
     public List<Lead> findByEmployeeIdOrderByCreatedAtDesc(int employeeId, Pageable pageable);
 
@@ -28,6 +31,7 @@ public interface LeadRepository extends JpaRepository<Lead, Integer> {
     long countByEmployeeId(int employeeId);
 
     long countByManagerId(int managerId);
+
     long countByCustomerCustomerId(int customerId);
 
     void deleteAllByCustomer(Customer customer);

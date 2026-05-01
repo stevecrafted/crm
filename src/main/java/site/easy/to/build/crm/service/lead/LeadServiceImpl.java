@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import site.easy.to.build.crm.entity.Customer;
 import site.easy.to.build.crm.repository.LeadRepository;
 import site.easy.to.build.crm.entity.Lead;
+import site.easy.to.build.crm.entity.Ticket;
 
 import java.util.List;
 
@@ -39,9 +40,10 @@ public class LeadServiceImpl implements LeadService {
     }
 
     @Override
-    public Lead findByMeetingId(String meetingId){
+    public Lead findByMeetingId(String meetingId) {
         return leadRepository.findByMeetingId(meetingId);
     }
+
     @Override
     public Lead save(Lead lead) {
         return leadRepository.save(lead);
@@ -60,7 +62,7 @@ public class LeadServiceImpl implements LeadService {
 
     @Override
     public List<Lead> getRecentCustomerLeads(int customerId, int limit) {
-        Pageable pageable = PageRequest.of(0,limit);
+        Pageable pageable = PageRequest.of(0, limit);
         return leadRepository.findByCustomerCustomerIdOrderByCreatedAtDesc(customerId, pageable);
     }
 
@@ -94,4 +96,16 @@ public class LeadServiceImpl implements LeadService {
     public long countByCustomerId(int customerId) {
         return leadRepository.countByCustomerCustomerId(customerId);
     }
+
+    @Override
+    public long countAll() {
+        return this.findAll().size();
+    }
+
+    @Override
+    public List<Lead> getRecenLeads(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return leadRepository.findByOrderByCreatedAtDesc(pageable);
+    }
+
 }

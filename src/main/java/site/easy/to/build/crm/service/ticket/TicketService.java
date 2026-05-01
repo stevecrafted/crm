@@ -20,6 +20,8 @@ public interface TicketService {
 
     public List<Ticket> findCustomerTickets(int id);
 
+    public List<Ticket> getRecenTickets(int limit);
+
     List<Ticket> getRecentTickets(int managerId, int limit);
 
     List<Ticket> getRecentEmployeeTickets(int employeeId, int limit);
@@ -33,4 +35,7 @@ public interface TicketService {
     long countByCustomerCustomerId(int customerId);
 
     void deleteAllByCustomer(Customer customer);
+
+    long countAll();
+
 }

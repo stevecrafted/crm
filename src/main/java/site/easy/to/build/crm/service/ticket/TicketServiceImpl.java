@@ -7,6 +7,7 @@ import site.easy.to.build.crm.entity.Customer;
 import site.easy.to.build.crm.repository.TicketRepository;
 import site.easy.to.build.crm.entity.Ticket;
 
+import java.security.PublicKey;
 import java.util.List;
 
 @Service
@@ -60,6 +61,12 @@ public class TicketServiceImpl implements TicketService{
     }
 
     @Override
+    public List<Ticket> getRecenTickets(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return ticketRepository.findByOrderByCreatedAtDesc(pageable);
+    }
+
+    @Override
     public List<Ticket> getRecentEmployeeTickets(int employeeId, int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return ticketRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId, pageable);
@@ -89,5 +96,10 @@ public class TicketServiceImpl implements TicketService{
     @Override
     public void deleteAllByCustomer(Customer customer) {
         ticketRepository.deleteAllByCustomer(customer);
+    }
+
+    @Override
+    public long countAll() {
+        return this.findAll().size();
     }
 }
